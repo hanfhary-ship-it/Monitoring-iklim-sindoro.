@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0d1f2d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sindoro Monitor">
+<link rel="manifest" href="manifest.json">
+<title>Sindoro Lahan Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sky-dark:   #0d1f2d;
+    --sky-mid:    #122b3d;
+    --sky-light:  #1a3a52;
+    --cloud:      #e8f4f8;
+    --mist:       rgba(232,244,248,0.08);
+    --gold:       #f0c060;
+    --gold2:      #c8951f;
+    --teal:       #4dd0c4;
+    --teal2:      #2a9d8f;
+    --rain:       #74b9ff;
+    --text:       #e8f4f8;
+    --muted:      #6b8fa3;
+    --border:     rgba(255,255,255,0.08);
+    --card:       rgba(255,255,255,0.05);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    background: var(--sky-dark);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* ── Animated sky background ── */
+  .sky-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background: linear-gradient(160deg, #0d1f2d 0%, #122b3d 40%, #1a3a52 100%);
+    overflow: hidden;
+  }
+  .sky-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 40% at 20% 20%, rgba(77,208,196,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 80% 70%, rgba(240,192,96,0.06) 0%, transparent 60%);
+  }
+
+  /* Stars */
+  .stars {
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 10% 15%, rgba(255,255,255,0.6) 0%, transparent 100%),
+      radial-gradient(1px 1px at 30% 8%,  rgba(255,255,255,0.4) 0%, transparent 100%),
+      radial-gradient(1px 1px at 55% 20%, rgba(255,255,255,0.5) 0%, transparent 100%),
+      radial-gradient(1px 1px at 75% 5%,  rgba(255,255,255,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 90% 18%, rgba(255,255,255,0.6) 0%, transparent 100%),
+      radial-gradient(1px 1px at 45% 3%,  rgba(255,255,255,0.4) 0%, transparent 100%),
+      radial-gradient(1px 1px at 65% 12%, rgba(255,255,255,0.5) 0%, transparent 100%);
+  }
+
+  /* Floating mist */
+  .mist-layer {
+    position: absolute;
+    bottom: 0; left: -20%;
+    width: 140%; height: 35%;
+    background: linear-gradient(to top, rgba(77,208,196,0.06) 0%, transparent 100%);
+    border-radius: 50% 50% 0 0;
+    animation: mistFloat 8s ease-in-out infinite alternate;
+  }
+  @keyframes mistFloat {
+    from { transform: translateY(0) scaleX(1); }
+    to   { transform: translateY(-15px) scaleX(1.05); }
+  }
+
+  /* ── Layout ── */
+  .app {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    padding: 0 0 32px;
+    max-width: 420px;
+    margin: 0 auto;
+  }
+
+  /* ── Header ── */
+  .header {
+    padding: 52px 24px 24px;
+    position: relative;
+  }
+  .location-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: .65rem;
+    color: var(--teal);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    background: rgba(77,208,196,.1);
+    border: 1px solid rgba(77,208,196,.2);
+    padding: 4px 12px;
+    border-radius: 20px;
+  }
+  .pin { font-size: .8rem; }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 2rem;
+    font-weight: 900;
+    line-height: 1.1;
+    color: var(--cloud);
+    margin-bottom: 4px;
+  }
+  h1 span { color: var(--gold); }
+
+  .coords {
+    font-family: 'DM Mono', monospace;
+    font-size: .6rem;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  /* ── Status bar ── */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 24px 24px;
+    padding: 10px 16px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--teal);
+    box-shadow: 0 0 10px var(--teal);
+    animation: pulse 2s infinite;
+  }
+  .status-dot.err { background: #ff6b6b; box-shadow: 0 0 10px #ff6b6b; }
+  @keyframes pulse {
+    0%,100% { opacity:1; transform:scale(1); }
+    50%      { opacity:.5; transform:scale(1.5); }
+  }
+  .status-text {
+    font-family: 'DM Mono', monospace;
+    font-size: .65rem;
+    color: var(--muted);
+  }
+  .update-time {
+    font-family: 'DM Mono', monospace;
+    font-size: .6rem;
+    color: var(--muted);
+  }
+
+  /* ── Hero weather card ── */
+  .hero-card {
+    margin: 0 24px 16px;
+    padding: 28px 24px;
+    background: linear-gradient(135deg, rgba(77,208,196,.12) 0%, rgba(26,58,82,.8) 100%);
+    border: 1px solid rgba(77,208,196,.2);
+    border-radius: 24px;
+    backdrop-filter: blur(20px);
+    position: relative;
+    overflow: hidden;
+    animation: fadeUp .6s ease both;
+  }
+  .hero-card::before {
+    content: '';
+    position: absolute;
+    top: -30%; right: -10%;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(77,208,196,.1) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  @keyframes fadeUp {
+    from { opacity:0; transform:translateY(20px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+
+  .weather-icon-big { font-size: 4rem; margin-bottom: 8px; display: block; }
+  .temp-big {
+    font-family: 'Playfair Display', serif;
+    font-size: 4.5rem;
+    font-weight: 900;
+    line-height: 1;
+    color: var(--cloud);
+  }
+  .temp-big sup { font-size: 1.5rem; vertical-align: super; color: var(--muted); }
+  .weather-desc {
+    font-size: .9rem;
+    color: var(--teal);
+    font-weight: 500;
+    margin-top: 6px;
+    text-transform: capitalize;
+  }
+  .feels-like {
+    font-family: 'DM Mono', monospace;
+    font-size: .65rem;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .hero-meta {
+    display: flex;
+    gap: 16px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+  .meta-item { flex: 1; }
+  .meta-label {
+    font-family: 'DM Mono', monospace;
+    font-size: .55rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    margin-bottom: 4px;
+  }
+  .meta-value {
+    font-family: 'DM Mono', monospace;
+    font-size: .9rem;
+    font-weight: 500;
+    color: var(--cloud);
+  }
+
+  /* ── Grid cards ── */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 0 24px 12px;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 18px 16px;
+    backdrop-filter: blur(10px);
+    position: relative;
+    overflow: hidden;
+    animation: fadeUp .6s ease both;
+  }
+  .card:nth-child(1) { animation-delay: .1s; }
+  .card:nth-child(2) { animation-delay: .2s; }
+  .card:nth-child(3) { animation-delay: .3s; }
+  .card:nth-child(4) { animation-delay: .4s; }
+
+  .card-icon { font-size: 1.6rem; margin-bottom: 10px; }
+  .card-label {
+    font-family: 'DM Mono', monospace;
+    font-size: .55rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .card-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 1.6rem;
+    font-weight: 500;
+    color: var(--cloud);
+    line-height: 1;
+  }
+  .card-val small { font-size: .75rem; color: var(--muted); }
+  .card-sub {
+    font-size: .65rem;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  /* Bar */
+  .bar-wrap {
+    height: 3px;
+    background: rgba(255,255,255,.08);
+    border-radius: 3px;
+    margin-top: 10px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* ── Elevation badge ── */
+  .elev-strip {
+    margin: 0 24px 16px;
+    padding: 14px 18px;
+    background: linear-gradient(90deg, rgba(240,192,96,.08) 0%, transparent 100%);
+    border: 1px solid rgba(240,192,96,.2);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    animation: fadeUp .6s .5s ease both;
+  }
+  .elev-left { display: flex; align-items: center; gap: 10px; }
+  .elev-icon { font-size: 1.4rem; }
+  .elev-label {
+    font-family: 'DM Mono', monospace;
+    font-size: .6rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+  .elev-val {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.2rem;
+    color: var(--gold);
+    font-weight: 700;
+  }
+  .elev-note {
+    font-family: 'DM Mono', monospace;
+    font-size: .6rem;
+    color: var(--muted);
+    text-align: right;
+  }
+
+  /* ── Avokad status ── */
+  .avo-card {
+    margin: 0 24px 16px;
+    padding: 18px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    animation: fadeUp .6s .6s ease both;
+  }
+  .avo-title {
+    font-family: 'DM Mono', monospace;
+    font-size: .6rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .avo-rows { display: flex; flex-direction: column; gap: 8px; }
+  .avo-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: .75rem;
+  }
+  .avo-param { color: var(--muted); }
+  .avo-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: .65rem;
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+  .ok   { background: rgba(77,208,196,.12); color: var(--teal); border: 1px solid rgba(77,208,196,.2); }
+  .warn { background: rgba(240,192,96,.12); color: var(--gold); border: 1px solid rgba(240,192,96,.2); }
+  .bad  { background: rgba(255,107,107,.12); color: #ff6b6b;   border: 1px solid rgba(255,107,107,.2); }
+
+  /* ── Forecast strip ── */
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: .6rem;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: var(--muted);
+    margin: 0 24px 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-label::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  .forecast-scroll {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 0 24px 8px;
+    scrollbar-width: none;
+    animation: fadeUp .6s .7s ease both;
+  }
+  .forecast-scroll::-webkit-scrollbar { display: none; }
+
+  .fc-item {
+    flex: 0 0 72px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 12px 8px;
+    text-align: center;
+    backdrop-filter: blur(10px);
+  }
+  .fc-time {
+    font-family: 'DM Mono', monospace;
+    font-size: .55rem;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .fc-icon { font-size: 1.3rem; margin-bottom: 6px; }
+  .fc-temp {
+    font-family: 'DM Mono', monospace;
+    font-size: .8rem;
+    color: var(--cloud);
+    font-weight: 500;
+  }
+  .fc-rain {
+    font-family: 'DM Mono', monospace;
+    font-size: .55rem;
+    color: var(--rain);
+    margin-top: 3px;
+  }
+
+  /* ── Refresh button ── */
+  .btn-refresh {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: calc(100% - 48px);
+    margin: 16px 24px 0;
+    padding: 16px;
+    background: transparent;
+    border: 1px solid rgba(77,208,196,.3);
+    border-radius: 16px;
+    color: var(--teal);
+    font-family: 'DM Mono', monospace;
+    font-size: .7rem;
+    letter-spacing: .08em;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .btn-refresh:hover { background: rgba(77,208,196,.08); }
+  .btn-refresh:active { transform: scale(.98); }
+  .btn-refresh.loading { opacity: .5; pointer-events: none; }
+
+  .spin {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(77,208,196,.3);
+    border-top-color: var(--teal);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+    display: none;
+  }
+  .loading .spin { display: block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Loading skeleton ── */
+  .skel {
+    background: linear-gradient(90deg, var(--border) 25%, rgba(255,255,255,.05) 50%, var(--border) 75%);
+    background-size: 200% 100%;
+    animation: skel 1.5s infinite;
+    border-radius: 6px;
+  }
+  @keyframes skel {
+    from { background-position: 200% 0; }
+    to   { background-position: -200% 0; }
+  }
+
+  /* ── Install banner ── */
+  .install-banner {
+    margin: 12px 24px 0;
+    padding: 12px 16px;
+    background: rgba(240,192,96,.08);
+    border: 1px solid rgba(240,192,96,.2);
+    border-radius: 14px;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    font-size: .72rem;
+    color: var(--gold);
+  }
+  .install-banner.show { display: flex; }
+  .btn-install {
+    margin-left: auto;
+    padding: 6px 14px;
+    background: rgba(240,192,96,.15);
+    border: 1px solid rgba(240,192,96,.3);
+    border-radius: 8px;
+    color: var(--gold);
+    font-family: 'DM Mono', monospace;
+    font-size: .6rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div class="sky-bg">
+  <div class="stars"></div>
+  <div class="mist-layer"></div>
+</div>
+
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="location-tag"><span class="pin">📍</span> Lereng Sindoro, Wonosobo</div>
+    <h1>Sindoro<br><span>Monitor</span></h1>
+    <div class="coords">-7.34132, 109.99964 · 1468 mdpl</div>
+  </div>
+
+  <!-- Status bar -->
+  <div class="status-bar">
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="status-dot" id="dot"></div>
+      <div class="status-text" id="statusText">Memuat...</div>
+    </div>
+    <div class="update-time" id="updateTime">—</div>
+  </div>
+
+  <!-- Hero card -->
+  <div class="hero-card">
+    <span class="weather-icon-big" id="heroIcon">⏳</span>
+    <div class="temp-big" id="heroTemp">--<sup>°C</sup></div>
+    <div class="weather-desc" id="heroDesc">Memuat data cuaca...</div>
+    <div class="feels-like" id="feelsLike">Terasa seperti --°C</div>
+    <div class="hero-meta">
+      <div class="meta-item">
+        <div class="meta-label">Min</div>
+        <div class="meta-value" id="tempMin">--°</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-label">Max</div>
+        <div class="meta-value" id="tempMax">--°</div>
+      </div>
+      <div class="meta-item">
+        <div class="meta-label">UV Index</div>
+        <div class="meta-value" id="uvIdx">--</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 cards -->
+  <div class="grid">
+    <div class="card">
+      <div class="card-icon">💧</div>
+      <div class="card-label">Kelembapan</div>
+      <div class="card-val" id="humidity">--<small>%</small></div>
+      <div class="bar-wrap"><div class="bar-fill" id="humBar" style="background:var(--teal);width:0%"></div></div>
+      <div class="card-sub" id="humSub">—</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">💨</div>
+      <div class="card-label">Angin</div>
+      <div class="card-val" id="wind">--<small> km/h</small></div>
+      <div class="bar-wrap"><div class="bar-fill" id="windBar" style="background:var(--gold);width:0%"></div></div>
+      <div class="card-sub" id="windDir">—</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🌧️</div>
+      <div class="card-label">Curah Hujan</div>
+      <div class="card-val" id="rain">--<small> mm</small></div>
+      <div class="bar-wrap"><div class="bar-fill" id="rainBar" style="background:var(--rain);width:0%"></div></div>
+      <div class="card-sub" id="rainSub">—</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">👁️</div>
+      <div class="card-label">Visibilitas</div>
+      <div class="card-val" id="vis">--<small> km</small></div>
+      <div class="bar-wrap"><div class="bar-fill" id="visBar" style="background:#a78bfa;width:0%"></div></div>
+      <div class="card-sub" id="visSub">—</div>
+    </div>
+  </div>
+
+  <!-- Elevation -->
+  <div class="elev-strip">
+    <div class="elev-left">
+      <div class="elev-icon">⛰️</div>
+      <div>
+        <div class="elev-label">Elevasi Lahan</div>
+        <div class="elev-val">1.468 mdpl</div>
+      </div>
+    </div>
+    <div class="elev-note">Lereng Selatan<br>Gunung Sindoro</div>
+  </div>
+
+  <!-- Avokad status -->
+  <div class="avo-card">
+    <div class="avo-title">🥑 Status Kondisi Avokad Hass</div>
+    <div class="avo-rows" id="avoRows">
+      <div class="avo-row"><span class="avo-param">Memuat...</span></div>
+    </div>
+  </div>
+
+  <!-- Forecast -->
+  <div class="section-label">Prakiraan 6 Jam</div>
+  <div class="forecast-scroll" id="forecastScroll">
+    <div class="fc-item"><div class="fc-time skel" style="height:10px;margin-bottom:6px"></div><div class="fc-icon">⏳</div><div class="fc-temp skel" style="height:12px"></div></div>
+    <div class="fc-item"><div class="fc-time skel" style="height:10px;margin-bottom:6px"></div><div class="fc-icon">⏳</div><div class="fc-temp skel" style="height:12px"></div></div>
+    <div class="fc-item"><div class="fc-time skel" style="height:10px;margin-bottom:6px"></div><div class="fc-icon">⏳</div><div class="fc-temp skel" style="height:12px"></div></div>
+  </div>
+
+  <!-- Install banner -->
+  <div class="install-banner" id="installBanner">
+    <span>📲</span>
+    <span>Install sebagai aplikasi di HP</span>
+    <button class="btn-install" id="btnInstall">Install</button>
+  </div>
+
+  <!-- Refresh -->
+  <button class="btn-refresh" id="btnRefresh" onclick="fetchWeather()">
+    <div class="spin"></div>
+    <span>↻ PERBARUI DATA</span>
+  </button>
+
+</div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────
+const LAT  = -7.34132;
+const LON  = 109.99964;
+const ELEV = 1468;
+
+// ── Weather code → emoji + label ─────────────────────────────────────────
+function wmoInfo(code) {
+  if (code === 0)            return { icon:'☀️',  label:'Cerah' };
+  if (code <= 2)             return { icon:'⛅',  label:'Sebagian Berawan' };
+  if (code === 3)            return { icon:'☁️',  label:'Mendung' };
+  if (code <= 49)            return { icon:'🌫️',  label:'Berkabut' };
+  if (code <= 59)            return { icon:'🌦️',  label:'Gerimis' };
+  if (code <= 69)            return { icon:'🌧️',  label:'Hujan' };
+  if (code <= 79)            return { icon:'🌨️',  label:'Salju/Hujan Es' };
+  if (code <= 82)            return { icon:'🌧️',  label:'Hujan Lebat' };
+  if (code <= 99)            return { icon:'⛈️',  label:'Badai Petir' };
+  return { icon:'🌡️', label:'Tidak Diketahui' };
+}
+
+// ── Wind direction ────────────────────────────────────────────────────────
+function windDir(deg) {
+  const dirs = ['U','TL','T','TG','S','BD','B','BL'];
+  return dirs[Math.round(deg / 45) % 8];
+}
+
+// ── Avokad evaluation ─────────────────────────────────────────────────────
+function avoStatus(temp, hum, rain) {
+  const rows = [
+    {
+      param: 'Suhu Udara',
+      val: `${temp}°C`,
+      ok: temp >= 15 && temp <= 28,
+      warn: (temp >= 12 && temp < 15) || (temp > 28 && temp <= 32),
+      note: temp < 15 ? 'Terlalu dingin' : temp > 28 ? 'Hangat' : 'Ideal ✓'
+    },
+    {
+      param: 'Kelembapan Udara',
+      val: `${hum}%`,
+      ok: hum >= 60 && hum <= 85,
+      warn: (hum >= 50 && hum < 60) || (hum > 85 && hum <= 90),
+      note: hum < 50 ? 'Terlalu kering' : hum > 90 ? 'Terlalu lembap' : 'Ideal ✓'
+    },
+    {
+      param: 'Curah Hujan Hari Ini',
+      val: `${rain} mm`,
+      ok: rain >= 0 && rain <= 8,
+      warn: rain > 8 && rain <= 15,
+      note: rain > 15 ? 'Terlalu tinggi' : 'Normal ✓'
+    }
+  ];
+
+  return rows.map(r => {
+    const cls = r.ok ? 'ok' : r.warn ? 'warn' : 'bad';
+    return `<div class="avo-row">
+      <span class="avo-param">${r.param} <span style="color:var(--cloud);font-family:'DM Mono',monospace;font-size:.65rem">${r.val}</span></span>
+      <span class="avo-badge ${cls}">${r.note}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Fetch weather ─────────────────────────────────────────────────────────
+async function fetchWeather() {
+  const btn = document.getElementById('btnRefresh');
+  btn.classList.add('loading');
+  document.getElementById('dot').className = 'status-dot';
+  document.getElementById('statusText').textContent = 'Memperbarui...';
+
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&elevation=${ELEV}`
+      + `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,precipitation,uv_index,visibility`
+      + `&hourly=temperature_2m,weather_code,precipitation_probability,precipitation&daily=temperature_2m_max,temperature_2m_min,precipitation_sum`
+      + `&timezone=Asia%2FJakarta&forecast_days=1`;
+
+    const res  = await fetch(url);
+    const data = await res.json();
+    const c    = data.current;
+    const d    = data.daily;
+    const h    = data.hourly;
+
+    // Hero
+    const wmo = wmoInfo(c.weather_code);
+    document.getElementById('heroIcon').textContent  = wmo.icon;
+    document.getElementById('heroTemp').innerHTML    = `${Math.round(c.temperature_2m)}<sup>°C</sup>`;
+    document.getElementById('heroDesc').textContent  = wmo.label;
+    document.getElementById('feelsLike').textContent = `Terasa seperti ${Math.round(c.apparent_temperature)}°C`;
+    document.getElementById('tempMin').textContent   = `${Math.round(d.temperature_2m_min[0])}°`;
+    document.getElementById('tempMax').textContent   = `${Math.round(d.temperature_2m_max[0])}°`;
+    document.getElementById('uvIdx').textContent     = c.uv_index ?? '--';
+
+    // Humidity
+    const hum = c.relative_humidity_2m;
+    document.getElementById('humidity').innerHTML = `${hum}<small>%</small>`;
+    document.getElementById('humBar').style.width = hum + '%';
+    document.getElementById('humSub').textContent = hum < 60 ? '⚠️ Kering' : hum > 85 ? '⚠️ Lembap' : '✅ Ideal untuk Hass';
+
+    // Wind
+    const ws = Math.round(c.wind_speed_10m);
+    document.getElementById('wind').innerHTML    = `${ws}<small> km/h</small>`;
+    document.getElementById('windBar').style.width = Math.min(ws / 60 * 100, 100) + '%';
+    document.getElementById('windDir').textContent = `Arah ${windDir(c.wind_direction_10m)} · ${ws < 20 ? 'Sepoi' : ws < 40 ? 'Sedang' : 'Kencang'}`;
+
+    // Rain
+    const rainVal = c.precipitation ?? 0;
+    const rainDay = d.precipitation_sum[0] ?? 0;
+    document.getElementById('rain').innerHTML    = `${rainVal}<small> mm</small>`;
+    document.getElementById('rainBar').style.width = Math.min(rainVal / 20 * 100, 100) + '%';
+    document.getElementById('rainSub').textContent = `Hari ini: ${rainDay} mm`;
+
+    // Visibility
+    const visKm = c.visibility ? Math.round(c.visibility / 1000) : '--';
+    document.getElementById('vis').innerHTML    = `${visKm}<small> km</small>`;
+    document.getElementById('visBar').style.width = Math.min((visKm / 20) * 100, 100) + '%';
+    document.getElementById('visSub').textContent = visKm < 5 ? '🌫️ Berkabut' : visKm < 10 ? '😶‍🌫️ Agak Kabut' : '👁️ Jelas';
+
+    // Avokad
+    document.getElementById('avoRows').innerHTML = avoStatus(
+      Math.round(c.temperature_2m), hum, rainDay
+    );
+
+    // Forecast (next 6 hours)
+    const now = new Date();
+    const nowH = now.getHours();
+    const fcHtml = [];
+    let count = 0;
+    for (let i = 0; i < h.time.length && count < 6; i++) {
+      const t = new Date(h.time[i]);
+      if (t <= now) continue;
+      const hw = wmoInfo(h.weather_code[i]);
+      fcHtml.push(`<div class="fc-item">
+        <div class="fc-time">${t.getHours().toString().padStart(2,'0')}:00</div>
+        <div class="fc-icon">${hw.icon}</div>
+        <div class="fc-temp">${Math.round(h.temperature_2m[i])}°C</div>
+        <div class="fc-rain">💧${h.precipitation_probability[i]}%</div>
+      </div>`);
+      count++;
+    }
+    document.getElementById('forecastScroll').innerHTML = fcHtml.join('');
+
+    // Status
+    document.getElementById('dot').className       = 'status-dot';
+    document.getElementById('statusText').textContent = '● Data Terkini';
+    document.getElementById('updateTime').textContent = now.toLocaleTimeString('id-ID', {hour:'2-digit',minute:'2-digit'});
+
+  } catch (err) {
+    document.getElementById('dot').className        = 'status-dot err';
+    document.getElementById('statusText').textContent = '● Gagal terhubung';
+    document.getElementById('heroDesc').textContent  = 'Periksa koneksi internet';
+    console.error(err);
+  } finally {
+    btn.classList.remove('loading');
+  }
+}
+
+// ── PWA Install ───────────────────────────────────────────────────────────
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBanner').classList.add('show');
+});
+document.getElementById('btnInstall').addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById('installBanner').classList.remove('show');
+});
+
+// ── Service Worker ────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+fetchWeather();
+setInterval(fetchWeather, 10 * 60 * 1000); // auto refresh tiap 10 menit
+</script>
+</body>
+</html>
